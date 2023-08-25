@@ -1,6 +1,6 @@
 <launch>
 <arg name="ns" default="J0" />
-<node ns="$(arg ns)" pkg="octomap_server" type="octomap_server_node" name="octomap_server">
+<node ns="$(arg ns)" pkg="octomap_project" type="octomap_project_node" name="octomap_project">
 		<param name="resolution" value="0.05" />
 		<param name="filter_ground" value="false" />
 		<param name="occupancy_min_z" value="0.02" />
