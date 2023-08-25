@@ -27,7 +27,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <octomap_server/OctomapServer.h>
+#include <octomap_project/OctomapServer.h>
 
 using namespace octomap;
 using octomap_msgs::Octomap;
@@ -37,7 +37,7 @@ bool is_equal (double a, double b, double epsilon = 1.0e-7)
     return std::abs(a - b) < epsilon;
 }
 
-namespace octomap_server{
+namespace octomap_project{
 
 OctomapServer::OctomapServer(const ros::NodeHandle private_nh_, const ros::NodeHandle &nh_)
 : m_nh(nh_),
@@ -167,21 +167,11 @@ OctomapServer::OctomapServer(const ros::NodeHandle private_nh_, const ros::NodeH
   } else
     ROS_INFO("Publishing non-latched (topics are only prepared as needed, will only be re-published on map change");
 
-  m_markerPub = m_nh.advertise<visualization_msgs::MarkerArray>("occupied_cells_vis_array", 1, m_latchedTopics);
-  m_binaryMapPub = m_nh.advertise<Octomap>("octomap_binary", 1, m_latchedTopics);
-  m_fullMapPub = m_nh.advertise<Octomap>("octomap_full", 1, m_latchedTopics);
-  m_pointCloudPub = m_nh.advertise<sensor_msgs::PointCloud2>("octomap_point_cloud_centers", 1, m_latchedTopics);
   m_mapPub = m_nh.advertise<nav_msgs::OccupancyGrid>("projected_map", 5, m_latchedTopics);
-  m_fmarkerPub = m_nh.advertise<visualization_msgs::MarkerArray>("free_cells_vis_array", 1, m_latchedTopics);
 
   m_pointCloudSub = new message_filters::Subscriber<sensor_msgs::PointCloud2> (m_nh, "cloud_in", 5);
   m_tfPointCloudSub = new tf::MessageFilter<sensor_msgs::PointCloud2> (*m_pointCloudSub, m_tfListener, m_worldFrameId, 5);
   m_tfPointCloudSub->registerCallback(boost::bind(&OctomapServer::insertCloudCallback, this, boost::placeholders::_1));
-
-  m_octomapBinaryService = m_nh.advertiseService("octomap_binary", &OctomapServer::octomapBinarySrv, this);
-  m_octomapFullService = m_nh.advertiseService("octomap_full", &OctomapServer::octomapFullSrv, this);
-  m_clearBBXService = m_nh_private.advertiseService("clear_bbx", &OctomapServer::clearBBXSrv, this);
-  m_resetService = m_nh_private.advertiseService("reset", &OctomapServer::resetSrv, this);
 
   dynamic_reconfigure::Server<OctomapServerConfig>::CallbackType f;
   f = boost::bind(&OctomapServer::reconfigureCallback, this, boost::placeholders::_1, boost::placeholders::_2);
@@ -503,12 +493,6 @@ void OctomapServer::publishAll(const ros::Time& rostime){
     return;
   }
 
-  bool publishFreeMarkerArray = m_publishFreeSpace && (m_latchedTopics || m_fmarkerPub.getNumSubscribers() > 0);
-  bool publishMarkerArray = (m_latchedTopics || m_markerPub.getNumSubscribers() > 0);
-  bool publishPointCloud = (m_latchedTopics || m_pointCloudPub.getNumSubscribers() > 0);
-  bool publishBinaryMap = (m_latchedTopics || m_binaryMapPub.getNumSubscribers() > 0);
-  bool publishFullMap = (m_latchedTopics || m_fullMapPub.getNumSubscribers() > 0);
-
   // init markers for free space:
   visualization_msgs::MarkerArray freeNodesVis;
   // each array stores all cubes of a different size, one for each depth level:
@@ -564,46 +548,6 @@ void OctomapServer::publishAll(const ros::Time& rostime){
           handleOccupiedNodeInBBX(it);
 
 
-        //create marker:
-        if (publishMarkerArray){
-          unsigned idx = it.getDepth();
-          assert(idx < occupiedNodesVis.markers.size());
-
-          geometry_msgs::Point cubeCenter;
-          cubeCenter.x = x;
-          cubeCenter.y = y;
-          cubeCenter.z = z;
-
-          occupiedNodesVis.markers[idx].points.push_back(cubeCenter);
-          if (m_useHeightMap){
-            double minX, minY, minZ, maxX, maxY, maxZ;
-            m_octree->getMetricMin(minX, minY, minZ);
-            m_octree->getMetricMax(maxX, maxY, maxZ);
-
-            double h = (1.0 - std::min(std::max((cubeCenter.z-minZ)/ (maxZ - minZ), 0.0), 1.0)) *m_colorFactor;
-            occupiedNodesVis.markers[idx].colors.push_back(heightMapColor(h));
-          }
-
-#ifdef COLOR_OCTOMAP_SERVER
-          if (m_useColoredMap) {
-            std_msgs::ColorRGBA _color; _color.r = (r / 255.); _color.g = (g / 255.); _color.b = (b / 255.); _color.a = 1.0; // TODO/EVALUATE: potentially use occupancy as measure for alpha channel?
-            occupiedNodesVis.markers[idx].colors.push_back(_color);
-          }
-#endif
-        }
-
-        // insert into pointcloud:
-        if (publishPointCloud) {
-#ifdef COLOR_OCTOMAP_SERVER
-          PCLPoint _point = PCLPoint();
-          _point.x = x; _point.y = y; _point.z = z;
-          _point.r = r; _point.g = g; _point.b = b;
-          pclCloud.push_back(_point);
-#else
-          pclCloud.push_back(PCLPoint(x, y, z));
-#endif
-        }
-
       }
     } else{ // node not occupied => mark as free in 2D map if unknown so far
       double z = it.getZ();
@@ -618,18 +562,6 @@ void OctomapServer::publishAll(const ros::Time& rostime){
           double x = it.getX();
           double y = it.getY();
 
-          //create marker for free space:
-          if (publishFreeMarkerArray){
-            unsigned idx = it.getDepth();
-            assert(idx < freeNodesVis.markers.size());
-
-            geometry_msgs::Point cubeCenter;
-            cubeCenter.x = x;
-            cubeCenter.y = y;
-            cubeCenter.z = z;
-
-            freeNodesVis.markers[idx].points.push_back(cubeCenter);
-          }
         }
 
       }
@@ -639,197 +571,10 @@ void OctomapServer::publishAll(const ros::Time& rostime){
   // call post-traversal hook:
   handlePostNodeTraversal(rostime);
 
-  // finish MarkerArray:
-  if (publishMarkerArray){
-    for (unsigned i= 0; i < occupiedNodesVis.markers.size(); ++i){
-      double size = m_octree->getNodeSize(i);
-
-      occupiedNodesVis.markers[i].header.frame_id = m_worldFrameId;
-      occupiedNodesVis.markers[i].header.stamp = rostime;
-      occupiedNodesVis.markers[i].ns = "map";
-      occupiedNodesVis.markers[i].id = i;
-      occupiedNodesVis.markers[i].type = visualization_msgs::Marker::CUBE_LIST;
-      occupiedNodesVis.markers[i].scale.x = size;
-      occupiedNodesVis.markers[i].scale.y = size;
-      occupiedNodesVis.markers[i].scale.z = size;
-      if (!m_useColoredMap)
-        occupiedNodesVis.markers[i].color = m_color;
-
-
-      if (occupiedNodesVis.markers[i].points.size() > 0)
-        occupiedNodesVis.markers[i].action = visualization_msgs::Marker::ADD;
-      else
-        occupiedNodesVis.markers[i].action = visualization_msgs::Marker::DELETE;
-    }
-
-    m_markerPub.publish(occupiedNodesVis);
-  }
-
-
-  // finish FreeMarkerArray:
-  if (publishFreeMarkerArray){
-    for (unsigned i= 0; i < freeNodesVis.markers.size(); ++i){
-      double size = m_octree->getNodeSize(i);
-
-      freeNodesVis.markers[i].header.frame_id = m_worldFrameId;
-      freeNodesVis.markers[i].header.stamp = rostime;
-      freeNodesVis.markers[i].ns = "map";
-      freeNodesVis.markers[i].id = i;
-      freeNodesVis.markers[i].type = visualization_msgs::Marker::CUBE_LIST;
-      freeNodesVis.markers[i].scale.x = size;
-      freeNodesVis.markers[i].scale.y = size;
-      freeNodesVis.markers[i].scale.z = size;
-      freeNodesVis.markers[i].color = m_colorFree;
-
-
-      if (freeNodesVis.markers[i].points.size() > 0)
-        freeNodesVis.markers[i].action = visualization_msgs::Marker::ADD;
-      else
-        freeNodesVis.markers[i].action = visualization_msgs::Marker::DELETE;
-    }
-
-    m_fmarkerPub.publish(freeNodesVis);
-  }
-
-
-  // finish pointcloud:
-  if (publishPointCloud){
-    sensor_msgs::PointCloud2 cloud;
-    pcl::toROSMsg (pclCloud, cloud);
-    cloud.header.frame_id = m_worldFrameId;
-    cloud.header.stamp = rostime;
-    m_pointCloudPub.publish(cloud);
-  }
-
-  if (publishBinaryMap)
-    publishBinaryOctoMap(rostime);
-
-  if (publishFullMap)
-    publishFullOctoMap(rostime);
-
 
   double total_elapsed = (ros::WallTime::now() - startTime).toSec();
   ROS_DEBUG("Map publishing in OctomapServer took %f sec", total_elapsed);
 }
-
-bool OctomapServer::octomapBinarySrv(OctomapSrv::Request  &req,
-                                    OctomapSrv::Response &res)
-{
-  ros::WallTime startTime = ros::WallTime::now();
-  ROS_INFO("Sending binary map data on service request");
-  res.map.header.frame_id = m_worldFrameId;
-  res.map.header.stamp = ros::Time::now();
-  if (!octomap_msgs::binaryMapToMsg(*m_octree, res.map))
-    return false;
-
-  double total_elapsed = (ros::WallTime::now() - startTime).toSec();
-  ROS_INFO("Binary octomap sent in %f sec", total_elapsed);
-  return true;
-}
-
-bool OctomapServer::octomapFullSrv(OctomapSrv::Request  &req,
-                                    OctomapSrv::Response &res)
-{
-  ROS_INFO("Sending full map data on service request");
-  res.map.header.frame_id = m_worldFrameId;
-  res.map.header.stamp = ros::Time::now();
-
-
-  if (!octomap_msgs::fullMapToMsg(*m_octree, res.map))
-    return false;
-
-  return true;
-}
-
-bool OctomapServer::clearBBXSrv(BBXSrv::Request& req, BBXSrv::Response& resp){
-  point3d min = pointMsgToOctomap(req.min);
-  point3d max = pointMsgToOctomap(req.max);
-
-  double thresMin = m_octree->getClampingThresMin();
-  for(OcTreeT::leaf_bbx_iterator it = m_octree->begin_leafs_bbx(min,max),
-      end=m_octree->end_leafs_bbx(); it!= end; ++it){
-
-    it->setLogOdds(octomap::logodds(thresMin));
-    //			m_octree->updateNode(it.getKey(), -6.0f);
-  }
-  // TODO: eval which is faster (setLogOdds+updateInner or updateNode)
-  m_octree->updateInnerOccupancy();
-
-  publishAll(ros::Time::now());
-
-  return true;
-}
-
-bool OctomapServer::resetSrv(std_srvs::Empty::Request& req, std_srvs::Empty::Response& resp) {
-  visualization_msgs::MarkerArray occupiedNodesVis;
-  occupiedNodesVis.markers.resize(m_treeDepth +1);
-  ros::Time rostime = ros::Time::now();
-  m_octree->clear();
-  // clear 2D map:
-  m_gridmap.data.clear();
-  m_gridmap.info.height = 0.0;
-  m_gridmap.info.width = 0.0;
-  m_gridmap.info.resolution = 0.0;
-  m_gridmap.info.origin.position.x = 0.0;
-  m_gridmap.info.origin.position.y = 0.0;
-
-  ROS_INFO("Cleared octomap");
-  publishAll(rostime);  // Note: This will return as the octree is empty
-
-  publishProjected2DMap(rostime);
-
-  publishBinaryOctoMap(rostime);
-
-  for (std::size_t i = 0; i < occupiedNodesVis.markers.size(); ++i){
-    occupiedNodesVis.markers[i].header.frame_id = m_worldFrameId;
-    occupiedNodesVis.markers[i].header.stamp = rostime;
-    occupiedNodesVis.markers[i].ns = "map";
-    occupiedNodesVis.markers[i].id = i;
-    occupiedNodesVis.markers[i].type = visualization_msgs::Marker::CUBE_LIST;
-    occupiedNodesVis.markers[i].action = visualization_msgs::Marker::DELETE;
-  }
-  m_markerPub.publish(occupiedNodesVis);
-
-  visualization_msgs::MarkerArray freeNodesVis;
-  freeNodesVis.markers.resize(m_treeDepth +1);
-  for (std::size_t i = 0; i < freeNodesVis.markers.size(); ++i){
-    freeNodesVis.markers[i].header.frame_id = m_worldFrameId;
-    freeNodesVis.markers[i].header.stamp = rostime;
-    freeNodesVis.markers[i].ns = "map";
-    freeNodesVis.markers[i].id = i;
-    freeNodesVis.markers[i].type = visualization_msgs::Marker::CUBE_LIST;
-    freeNodesVis.markers[i].action = visualization_msgs::Marker::DELETE;
-  }
-  m_fmarkerPub.publish(freeNodesVis);
-
-  return true;
-}
-
-void OctomapServer::publishBinaryOctoMap(const ros::Time& rostime) const{
-
-  Octomap map;
-  map.header.frame_id = m_worldFrameId;
-  map.header.stamp = rostime;
-
-  if (octomap_msgs::binaryMapToMsg(*m_octree, map))
-    m_binaryMapPub.publish(map);
-  else
-    ROS_ERROR("Error serializing OctoMap");
-}
-
-void OctomapServer::publishFullOctoMap(const ros::Time& rostime) const{
-
-  Octomap map;
-  map.header.frame_id = m_worldFrameId;
-  map.header.stamp = rostime;
-
-  if (octomap_msgs::fullMapToMsg(*m_octree, map))
-    m_fullMapPub.publish(map);
-  else
-    ROS_ERROR("Error serializing OctoMap");
-
-}
-
 
 void OctomapServer::filterGroundPlane(const PCLPointCloud& pc, PCLPointCloud& ground, PCLPointCloud& nonground) const{
   ground.header = pc.header;
@@ -1130,7 +875,7 @@ bool OctomapServer::isSpeckleNode(const OcTreeKey&nKey) const {
   return neighborFound;
 }
 
-void OctomapServer::reconfigureCallback(octomap_server::OctomapServerConfig& config, uint32_t level){
+void OctomapServer::reconfigureCallback(octomap_project::OctomapServerConfig& config, uint32_t level){
   if (m_maxTreeDepth != unsigned(config.max_depth))
     m_maxTreeDepth = unsigned(config.max_depth);
   else{

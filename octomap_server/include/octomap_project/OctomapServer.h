@@ -40,7 +40,7 @@
 #include <sensor_msgs/PointCloud2.h>
 #include <std_srvs/Empty.h>
 #include <dynamic_reconfigure/server.h>
-#include <octomap_server/OctomapServerConfig.h>
+#include <octomap_project/OctomapServerConfig.h>
 
 #include <pcl/point_types.h>
 #include <pcl/conversions.h>
@@ -71,13 +71,13 @@
 #include <octomap/octomap.h>
 #include <octomap/OcTreeKey.h>
 
-//#define COLOR_OCTOMAP_SERVER // switch color here - easier maintenance, only maintain OctomapServer. Two targets are defined in the cmake, octomap_server_color and octomap_server. One has this defined, and the other doesn't
+//#define COLOR_OCTOMAP_SERVER // switch color here - easier maintenance, only maintain OctomapServer. Two targets are defined in the cmake, octomap_server_color and octomap_project. One has this defined, and the other doesn't
 
 #ifdef COLOR_OCTOMAP_SERVER
 #include <octomap/ColorOcTree.h>
 #endif
 
-namespace octomap_server {
+namespace octomap_project {
 class OctomapServer {
 
 public:
@@ -95,10 +95,6 @@ public:
 
   OctomapServer(const ros::NodeHandle private_nh_ = ros::NodeHandle("~"), const ros::NodeHandle &nh_ = ros::NodeHandle());
   virtual ~OctomapServer();
-  virtual bool octomapBinarySrv(OctomapSrv::Request  &req, OctomapSrv::GetOctomap::Response &res);
-  virtual bool octomapFullSrv(OctomapSrv::Request  &req, OctomapSrv::GetOctomap::Response &res);
-  bool clearBBXSrv(BBXSrv::Request& req, BBXSrv::Response& resp);
-  bool resetSrv(std_srvs::Empty::Request& req, std_srvs::Empty::Response& resp);
 
   virtual void insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud);
   virtual bool openFile(const std::string& filename);
@@ -125,9 +121,7 @@ protected:
             && key[1] <= m_updateBBXMax[1]);
   }
 
-  void reconfigureCallback(octomap_server::OctomapServerConfig& config, uint32_t level);
-  void publishBinaryOctoMap(const ros::Time& rostime = ros::Time::now()) const;
-  void publishFullOctoMap(const ros::Time& rostime = ros::Time::now()) const;
+  void reconfigureCallback(octomap_project::OctomapServerConfig& config, uint32_t level);
   void publishProjected2DMap(const ros::Time& rostime = ros::Time::now());
   virtual void publishAll(const ros::Time& rostime = ros::Time::now());
 

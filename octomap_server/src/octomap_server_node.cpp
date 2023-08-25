@@ -1,5 +1,5 @@
 /**
-* octomap_server: A Tool to serve 3D OctoMaps in ROS (binary and as visualization)
+* octomap_project: A Tool to serve 3D OctoMaps in ROS (binary and as visualization)
 * (inspired by the ROS map_saver)
 * @author A. Hornung, University of Freiburg, Copyright (C) 2009 - 2012.
 * @see http://octomap.sourceforge.net/
@@ -37,15 +37,15 @@
 
 
 #include <ros/ros.h>
-#include <octomap_server/OctomapServer.h>
+#include <octomap_project/OctomapServer.h>
 
-#define USAGE "\nUSAGE: octomap_server <map.[bt|ot]>\n" \
+#define USAGE "\nUSAGE: octomap_project <map.[bt|ot]>\n" \
         "  map.bt: inital octomap 3D map file to read\n"
 
-using namespace octomap_server;
+using namespace octomap_project;
 
 int main(int argc, char** argv){
-  ros::init(argc, argv, "octomap_server");
+  ros::init(argc, argv, "octomap_project");
   const ros::NodeHandle nh;
   const ros::NodeHandle private_nh("~");
   std::string mapFilename(""), mapFilenameParam("");
@@ -80,7 +80,7 @@ int main(int argc, char** argv){
   try{
     ros::spin();
   }catch(std::runtime_error& e){
-    ROS_ERROR("octomap_server exception: %s", e.what());
+    ROS_ERROR("octomap_project exception: %s", e.what());
     return -1;
   }
 

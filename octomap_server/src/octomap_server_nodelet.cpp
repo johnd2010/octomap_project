@@ -35,12 +35,12 @@
 
 
 #include <ros/ros.h>
-#include <octomap_server/OctomapServer.h>
+#include <octomap_project/OctomapServer.h>
 #include <pluginlib/class_list_macros.hpp>
 #include <nodelet/nodelet.h>
 
 
-namespace octomap_server
+namespace octomap_project
 {
 
 class OctomapServerNodelet : public nodelet::Nodelet
@@ -66,4 +66,4 @@ private:
 
 } // namespace
 
-PLUGINLIB_EXPORT_CLASS(octomap_server::OctomapServerNodelet, nodelet::Nodelet)
+PLUGINLIB_EXPORT_CLASS(octomap_project::OctomapServerNodelet, nodelet::Nodelet)
