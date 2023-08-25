@@ -54,11 +54,11 @@ public:
     server_.reset(new OctomapServer(private_nh, nh));
 
     std::string mapFilename("");
-    if (private_nh.getParam("map_file", mapFilename)) {
-      if (!server_->openFile(mapFilename)){
-        NODELET_WARN("Could not open file %s", mapFilename.c_str());
-      }
-    }
+    // if (private_nh.getParam("map_file", mapFilename)) {
+    //   if (!server_->openFile(mapFilename)){
+    //     NODELET_WARN("Could not open file %s", mapFilename.c_str());
+    //   }
+    // }
   }
 private:
   boost::shared_ptr<OctomapServer> server_;

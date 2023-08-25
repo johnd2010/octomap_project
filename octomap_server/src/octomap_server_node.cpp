@@ -70,12 +70,12 @@ int main(int argc, char** argv){
     }
   }
 
-  if (mapFilename != "") {
-    if (!server.openFile(mapFilename)){
-      ROS_ERROR("Could not open file %s", mapFilename.c_str());
-      exit(1);
-    }
-  }
+  // if (mapFilename != "") {
+  //   if (!server.openFile(mapFilename)){
+  //     ROS_ERROR("Could not open file %s", mapFilename.c_str());
+  //     exit(1);
+  //   }
+  // }
 
   try{
     ros::spin();
