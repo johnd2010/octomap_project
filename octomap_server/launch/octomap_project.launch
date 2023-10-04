@@ -1,9 +1,9 @@
 <launch>
 <arg name="ns" default="uav1" />
-<arg name="pointcloud_min_x" default="-25" />
-<arg name="pointcloud_min_y" default="-25" />
-<arg name="pointcloud_max_x" default="25" />
-<arg name="pointcloud_max_y" default="25" />
+<arg name="pointcloud_min_x" default="-100" />
+<arg name="pointcloud_min_y" default="-100" />
+<arg name="pointcloud_max_x" default="100" />
+<arg name="pointcloud_max_y" default="100" />
 <node ns="$(arg ns)" pkg="octomap_project" type="octomap_project_node" name="octomap_project">
 		<param name="resolution" value="0.1" />
 		<param name="filter_ground" value="false" />
@@ -15,7 +15,8 @@
 		<!-- <param name="occupancy_max_z" value="false" /> -->
 		<!-- <param name="ground_filter/plane_distance" value="10" /> -->
 		<!-- <param name="ground_filter/distance" value="10" /> -->
-		<param name="frame_id" type="string" value="$(arg ns)/gps_origin" />
+		<!-- <param name="frame_id" type="string" value="$(arg ns)/gps_origin" /> -->
+		<param name="frame_id" type="string" value="$(arg ns)/local_origin" />
 		<remap from="cloud_in" to="/$(arg ns)/octomap_global_vis/octomap_point_cloud_centers" />
 		<!-- <remap from="cloud_in" to="/$(arg ns)/velodyne_points" /> -->
 		<!-- <remap from="projected_map" to="/$(arg ns)/octree_projected_map" />	 -->
