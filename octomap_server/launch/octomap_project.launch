@@ -1,9 +1,9 @@
 <launch>
 <arg name="ns" default="uav1" />
-<arg name="pointcloud_min_x" default="-100" />
-<arg name="pointcloud_min_y" default="-100" />
-<arg name="pointcloud_max_x" default="100" />
-<arg name="pointcloud_max_y" default="100" />
+<arg name="pointcloud_min_x" default="-10" />
+<arg name="pointcloud_min_y" default="-10" />
+<arg name="pointcloud_max_x" default="10" />
+<arg name="pointcloud_max_y" default="10" />
 <node ns="$(arg ns)" pkg="octomap_project" type="octomap_project_node" name="octomap_project">
 		<param name="resolution" value="0.1" />
 		<param name="filter_ground" value="false" />

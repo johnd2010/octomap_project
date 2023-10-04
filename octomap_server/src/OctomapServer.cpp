@@ -829,6 +829,10 @@ void OctomapServer::reconfigureCallback(octomap_project::OctomapServerConfig& co
   else{
     m_pointcloudMinZ            = config.pointcloud_min_z;
     m_pointcloudMaxZ            = config.pointcloud_max_z;
+    m_pointcloudMinX            = config.pointcloud_min_x;
+    m_pointcloudMaxX            = config.pointcloud_max_x;
+    m_pointcloudMinY            = config.pointcloud_min_y;
+    m_pointcloudMaxY            = config.pointcloud_max_y;
     m_occupancyMinZ             = config.occupancy_min_z;
     m_occupancyMaxZ             = config.occupancy_max_z;
     m_filterSpeckles            = config.filter_speckles;
