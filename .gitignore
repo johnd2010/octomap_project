@@ -16,3 +16,5 @@ octomap_server/docs
 octomap_server/src/octomap_server
 octomap_server/.vscode/*
 .vscode/*
+
+*.swp
