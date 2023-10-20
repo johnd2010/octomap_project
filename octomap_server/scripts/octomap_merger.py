@@ -3,7 +3,6 @@
 import rospy
 import ros_numpy
 import numpy as np
-from tf2_sensor_msgs import do_transform_cloud
 from sensor_msgs.msg import PointCloud2
 import argparse
 
