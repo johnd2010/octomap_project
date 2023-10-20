@@ -11,7 +11,7 @@ class octomap_merger(object):
         
         self.ns = ns
         print(ns)
-        self.NAMESPACES = ["uav1","uav2","uav3"]
+        self.NAMESPACES = ["uav29","uav30"]
         self.NAMESPACES.remove(ns)
         self.transform = None
         self.pcl = None
@@ -26,8 +26,8 @@ class octomap_merger(object):
         self.GLOBAL_ORIGIN = self.ns+"/world_origin"
 
         self.pcl_sub = rospy.Subscriber(pcl_TOPIC, PointCloud2, self.pclCallback, queue_size=5)
-        self.pcl_sub = rospy.Subscriber(other_pcl_TOPIC[0], PointCloud2, self.pclCallback2, queue_size=5)
-        self.pcl_sub = rospy.Subscriber(other_pcl_TOPIC[1], PointCloud2, self.pclCallback3, queue_size=5)
+        self.pcl_sub2 = rospy.Subscriber(other_pcl_TOPIC[0], PointCloud2, self.pclCallback2, queue_size=5)
+        # self.pcl_sub = rospy.Subscriber(other_pcl_TOPIC[1], PointCloud2, self.pclCallback3, queue_size=5)
         self.pub_pcl = rospy.Publisher(pcl_local_TOPIC, PointCloud2, queue_size=10)
 
     def pclCallback(self,pcl):
