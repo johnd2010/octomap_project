@@ -12,7 +12,8 @@ class octomap_trimmer(object):
         self.ns = ns
         self.transform = None
         self.pcl = None
-        pcl_TOPIC = "/"+ns+"/octomap_global_vis/octomap_point_cloud_centers"
+        # pcl_TOPIC = "/"+ns+"/octomap_global_vis/octomap_point_cloud_centers"
+        pcl_TOPIC = "/"+ns+"/full_map"
         pcl_local_TOPIC = "/"+ns+"/local_pcl"
         self.LOCAL_ORIGIN = self.ns+"/local_origin"
         self.GLOBAL_ORIGIN = self.ns+"/world_origin"
