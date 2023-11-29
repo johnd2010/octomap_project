@@ -1,0 +1,20 @@
+<launch>
+<arg name="ns" default="$(optenv UAV_NAME)" />
+<arg name="pointcloud_min_x" default="-10" />
+<arg name="pointcloud_min_y" default="-10" />
+<arg name="pointcloud_max_x" default="10" />
+<arg name="pointcloud_max_y" default="10" />
+<node ns="$(arg ns)" pkg="octomap_project" type="octomap_project_node" name="octomap_project_bag">
+		<param name="resolution" value="0.1" />
+		<param name="filter_ground" value="false" />
+		<param name="filter_speckles" value="false" />
+		<param name="pointcloud_min_x" value="$(arg pointcloud_min_x)" />
+		<param name="pointcloud_min_y" value="$(arg pointcloud_min_y)" />
+		<param name="pointcloud_max_x" value="$(arg pointcloud_max_x)" />
+		<param name="pointcloud_max_y" value="$(arg pointcloud_max_y)" />
+		<param name="frame_id" type="string" value="$(arg ns)/local_origin" />
+		<param name="base_frame_id" type="string" value="$(arg ns)/fcu" />
+		<remap from="cloud_in" to="/$(arg ns)/local_pcl" />
+		<remap from="projected_map" to="/$(arg ns)/octree_projected_map" />	
+	</node>
+</launch>
