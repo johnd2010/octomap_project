@@ -6,19 +6,23 @@ import tf2_geometry_msgs #import the packages first
 from tf2_sensor_msgs import do_transform_cloud
 from sensor_msgs.msg import PointCloud2
 import argparse
+import ros_numpy
 
 class octomap_trimmer(object):
     def __init__(self,ns="uav1"):
         self.ns = ns
         self.transform = None
         self.pcl = None
+        # self.pcl_smooshed = None
         pcl_TOPIC = "/"+ns+"/full_map"
         # pcl_TOPIC = "/"+ns+"/full_map"
         pcl_local_TOPIC = "/"+ns+"/local_pcl"
+        # pcl_local_TOPIC_smooshed = "/"+ns+"/local_pcl_smooshed"
         self.LOCAL_ORIGIN = self.ns+"/local_origin"
         self.GLOBAL_ORIGIN = self.ns+"/world_origin"
         self.pcl_sub = rospy.Subscriber(pcl_TOPIC, PointCloud2, self.pclCallback, queue_size=5)
         self.pub_pcl = rospy.Publisher(pcl_local_TOPIC, PointCloud2, queue_size=10)
+        # self.pub_pcl_smoosh = rospy.Publisher(pcl_local_TOPIC_smooshed, PointCloud2, queue_size=10)
 
     def pclCallback(self,pcl):
         if pcl is not None:
@@ -41,6 +45,8 @@ class octomap_trimmer(object):
             if self.pcl is not None and self.transform is not None:
                 local_pcl = do_transform_cloud(self.pcl,self.transform )
                 self.pub_pcl.publish(local_pcl)
+                # local_pcl = do_transform_cloud(self.smoosh_pcl(),self.transform )
+                # self.pub_pcl_smoosh.publish(local_pcl)
 
 
 if __name__ == '__main__':
@@ -52,3 +58,4 @@ if __name__ == '__main__':
     obj.get_transform()
     print("got transform")
     obj.run()
+

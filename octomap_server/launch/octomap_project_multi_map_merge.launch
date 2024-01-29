@@ -7,7 +7,7 @@
 <node ns="$(arg ns)" pkg="octomap_project" type="octomap_project_node" name="octomap_project">
 		<param name="resolution" value="0.1" />
 		<param name="filter_ground" value="false" />
-		<param name="filter_speckles" value="true" />
+		<param name="filter_speckles" value="false" />
 		<param name="pointcloud_min_x" value="$(arg pointcloud_min_x)" />
 		<param name="pointcloud_min_y" value="$(arg pointcloud_min_y)" />
 		<param name="pointcloud_max_x" value="$(arg pointcloud_max_x)" />
@@ -20,7 +20,7 @@
 		<!-- <param name="frame_id" type="string" value="$(arg ns)/gps_origin" /> -->
 		<param name="frame_id" type="string" value="$(arg ns)/local_origin" />
 		<param name="base_frame_id" type="string" value="$(arg ns)/fcu" />
-		<remap from="cloud_in" to="/$(arg ns)/local_pcl" />
+		<remap from="cloud_in" to="/$(arg ns)/octomap_global_vis/octomap_point_cloud_centers" />
 		<!-- <remap from="cloud_in" to="/$(arg ns)/velodyne_points" /> -->
 		<!-- <remap from="projected_map" to="/$(arg ns)/octree_projected_map" />	 -->
 		<remap from="projected_map" to="/$(arg ns)/octree_projected_map" />	

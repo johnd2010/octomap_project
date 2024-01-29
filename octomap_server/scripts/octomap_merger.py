@@ -16,7 +16,7 @@ class octomap_merger(object):
             self.color = np.asarray([1,0,0,1])
             self.color_other = np.asarray([0,1,0,1])
 
-        self.NAMESPACES = ["uav1"]
+        self.NAMESPACES = ["uav1","uav2"]
         self.NAMESPACES.remove(ns)
         self.transform = None
         self.pcl = None
