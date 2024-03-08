@@ -66,7 +66,6 @@ OctomapServer::OctomapServer(const ros::NodeHandle private_nh_, const ros::NodeH
   m_occupancyMinZ(-std::numeric_limits<double>::max()),
   m_occupancyMaxZ(std::numeric_limits<double>::max()),
   m_minSizeX(0.0), m_minSizeY(0.0),
-  m_filterSpeckles(false), m_filterGroundPlane(false),
   m_groundFilterDistance(0.04), m_groundFilterAngle(0.15), m_groundFilterPlaneDistance(0.07),
   m_compressMap(true),
   m_incrementalUpdate(false),
@@ -91,8 +90,6 @@ OctomapServer::OctomapServer(const ros::NodeHandle private_nh_, const ros::NodeH
   m_nh_private.param("min_x_size", m_minSizeX,m_minSizeX);
   m_nh_private.param("min_y_size", m_minSizeY,m_minSizeY);
 
-  m_nh_private.param("filter_speckles", m_filterSpeckles, m_filterSpeckles);
-  m_nh_private.param("filter_ground", m_filterGroundPlane, m_filterGroundPlane);
   // distance of points from plane for RANSAC
   m_nh_private.param("ground_filter/distance", m_groundFilterDistance, m_groundFilterDistance);
   // angular derivation of found plane:
@@ -111,7 +108,7 @@ OctomapServer::OctomapServer(const ros::NodeHandle private_nh_, const ros::NodeH
   m_nh_private.param("compress_map", m_compressMap, m_compressMap);
   m_nh_private.param("incremental_2D_projection", m_incrementalUpdate, m_incrementalUpdate);
 
-  if (m_filterGroundPlane && (m_pointcloudMinZ > 0.0 || m_pointcloudMaxZ < 0.0)){
+  if ( (m_pointcloudMinZ > 0.0 || m_pointcloudMaxZ < 0.0)){
     ROS_WARN_STREAM("You enabled ground filtering but incoming pointclouds will be pre-filtered in ["
               <<m_pointcloudMinZ <<", "<< m_pointcloudMaxZ << "], excluding the ground level z=0. "
               << "This will not work.");
@@ -234,54 +231,23 @@ void OctomapServer::insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr
   PCLPointCloud pc_ground; // segmented ground plane
   PCLPointCloud pc_nonground; // everything else
 
-  if (m_filterGroundPlane){
-    tf::StampedTransform sensorToBaseTf, baseToWorldTf;
-    try{
-      m_tfListener.waitForTransform(m_baseFrameId, cloud->header.frame_id, cloud->header.stamp, ros::Duration(0.2));
-      m_tfListener.lookupTransform(m_baseFrameId, cloud->header.frame_id, cloud->header.stamp, sensorToBaseTf);
-      m_tfListener.lookupTransform(m_worldFrameId, m_baseFrameId, cloud->header.stamp, baseToWorldTf);
 
-
-    }catch(tf::TransformException& ex){
-      ROS_ERROR_STREAM( "Transform error for ground plane filter: " << ex.what() << ", quitting callback.\n"
-                        "You need to set the base_frame_id or disable filter_ground.");
-    }
-
-
-    Eigen::Matrix4f sensorToBase, baseToWorld;
-    pcl_ros::transformAsMatrix(sensorToBaseTf, sensorToBase);
-    pcl_ros::transformAsMatrix(baseToWorldTf, baseToWorld);
-
-    // transform pointcloud from sensor frame to fixed robot frame
-    pcl::transformPointCloud(pc, pc, sensorToBase);
-    pass_x.setInputCloud(pc.makeShared());
-    pass_x.filter(pc);
-    pass_y.setInputCloud(pc.makeShared());
-    pass_y.filter(pc);
-    pass_z.setInputCloud(pc.makeShared());
-    pass_z.filter(pc);
-    filterGroundPlane(pc, pc_ground, pc_nonground);
-
-    // transform clouds to world frame for insertion
-    pcl::transformPointCloud(pc_ground, pc_ground, baseToWorld);
-    pcl::transformPointCloud(pc_nonground, pc_nonground, baseToWorld);
-  } else {
     // directly transform to map frame:
-    pcl::transformPointCloud(pc, pc, sensorToWorld);
+  pcl::transformPointCloud(pc, pc, sensorToWorld);
 
-    // just filter height range:
-    pass_x.setInputCloud(pc.makeShared());
-    pass_x.filter(pc);
-    pass_y.setInputCloud(pc.makeShared());
-    pass_y.filter(pc);
-    pass_z.setInputCloud(pc.makeShared());
-    pass_z.filter(pc);
+  // just filter height range:
+  pass_x.setInputCloud(pc.makeShared());
+  pass_x.filter(pc);
+  pass_y.setInputCloud(pc.makeShared());
+  pass_y.filter(pc);
+  pass_z.setInputCloud(pc.makeShared());
+  pass_z.filter(pc);
 
-    pc_nonground = pc;
-    // pc_nonground is empty without ground segmentation
-    pc_ground.header = pc.header;
-    pc_nonground.header = pc.header;
-  }
+  pc_nonground = pc;
+  // pc_nonground is empty without ground segmentation
+  pc_ground.header = pc.header;
+  pc_nonground.header = pc.header;
+  
 
 
   insertScan(sensorToWorldTf.getOrigin(), pc_ground, pc_nonground);
@@ -485,12 +451,6 @@ void OctomapServer::publishAll(const ros::Time& rostime){
         int b = it->getColor().b;
 #endif
 
-        // Ignore speckles in the map:
-        if (m_filterSpeckles && (it.getDepth() == m_treeDepth +1) && isSpeckleNode(it.getKey())){
-          ROS_DEBUG("Ignoring single speckle at (%f,%f,%f)", x, y, z);
-          continue;
-        } // else: current octree node is no speckle, send it out
-
         handleOccupiedNode(it);
         if (inUpdateBBX)
           handleOccupiedNodeInBBX(it);
@@ -524,114 +484,6 @@ void OctomapServer::publishAll(const ros::Time& rostime){
   ROS_DEBUG("Map publishing in OctomapServer took %f sec", total_elapsed);
 }
 
-void OctomapServer::filterGroundPlane(const PCLPointCloud& pc, PCLPointCloud& ground, PCLPointCloud& nonground) const{
-  ground.header = pc.header;
-  nonground.header = pc.header;
-
-  if (pc.size() < 50){
-    ROS_WARN("Pointcloud in OctomapServer too small, skipping ground plane extraction");
-    nonground = pc;
-  } else {
-    // plane detection for ground plane removal:
-    pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients);
-    pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
-
-    // Create the segmentation object and set up:
-    pcl::SACSegmentation<PCLPoint> seg;
-    seg.setOptimizeCoefficients (true);
-    // TODO: maybe a filtering based on the surface normals might be more robust / accurate?
-    seg.setModelType(pcl::SACMODEL_PERPENDICULAR_PLANE);
-    seg.setMethodType(pcl::SAC_RANSAC);
-    seg.setMaxIterations(200);
-    seg.setDistanceThreshold (m_groundFilterDistance);
-    seg.setAxis(Eigen::Vector3f(0,0,1));
-    seg.setEpsAngle(m_groundFilterAngle);
-
-
-    PCLPointCloud cloud_filtered(pc);
-    // Create the filtering object
-    pcl::ExtractIndices<PCLPoint> extract;
-    bool groundPlaneFound = false;
-
-    while(cloud_filtered.size() > 10 && !groundPlaneFound){
-      seg.setInputCloud(cloud_filtered.makeShared());
-      seg.segment (*inliers, *coefficients);
-      if (inliers->indices.size () == 0){
-        ROS_INFO("PCL segmentation did not find any plane.");
-
-        break;
-      }
-
-      extract.setInputCloud(cloud_filtered.makeShared());
-      extract.setIndices(inliers);
-
-      if (std::abs(coefficients->values.at(3)) < m_groundFilterPlaneDistance){
-        ROS_DEBUG("Ground plane found: %zu/%zu inliers. Coeff: %f %f %f %f", inliers->indices.size(), cloud_filtered.size(),
-                  coefficients->values.at(0), coefficients->values.at(1), coefficients->values.at(2), coefficients->values.at(3));
-        extract.setNegative (false);
-        extract.filter (ground);
-
-        // remove ground points from full pointcloud:
-        // workaround for PCL bug:
-        if(inliers->indices.size() != cloud_filtered.size()){
-          extract.setNegative(true);
-          PCLPointCloud cloud_out;
-          extract.filter(cloud_out);
-          nonground += cloud_out;
-          cloud_filtered = cloud_out;
-        }
-
-        groundPlaneFound = true;
-      } else{
-        ROS_DEBUG("Horizontal plane (not ground) found: %zu/%zu inliers. Coeff: %f %f %f %f", inliers->indices.size(), cloud_filtered.size(),
-                  coefficients->values.at(0), coefficients->values.at(1), coefficients->values.at(2), coefficients->values.at(3));
-        pcl::PointCloud<PCLPoint> cloud_out;
-        extract.setNegative (false);
-        extract.filter(cloud_out);
-        nonground +=cloud_out;
-        // debug
-        //            pcl::PCDWriter writer;
-        //            writer.write<PCLPoint>("nonground_plane.pcd",cloud_out, false);
-
-        // remove current plane from scan for next iteration:
-        // workaround for PCL bug:
-        if(inliers->indices.size() != cloud_filtered.size()){
-          extract.setNegative(true);
-          cloud_out.points.clear();
-          extract.filter(cloud_out);
-          cloud_filtered = cloud_out;
-        } else{
-          cloud_filtered.points.clear();
-        }
-      }
-
-    }
-    // TODO: also do this if overall starting pointcloud too small?
-    if (!groundPlaneFound){ // no plane found or remaining points too small
-      ROS_WARN("No ground plane found in scan");
-
-      // do a rough fitlering on height to prevent spurious obstacles
-      pcl::PassThrough<PCLPoint> second_pass;
-      second_pass.setFilterFieldName("z");
-      second_pass.setFilterLimits(-m_groundFilterPlaneDistance, m_groundFilterPlaneDistance);
-      second_pass.setInputCloud(pc.makeShared());
-      second_pass.filter(ground);
-
-      second_pass.setFilterLimitsNegative (true);
-      second_pass.filter(nonground);
-    }
-
-    // debug:
-    //        pcl::PCDWriter writer;
-    //        if (pc_ground.size() > 0)
-    //          writer.write<PCLPoint>("ground.pcd",pc_ground, false);
-    //        if (pc_nonground.size() > 0)
-    //          writer.write<PCLPoint>("nonground.pcd",pc_nonground, false);
-
-  }
-
-
-}
 
 void OctomapServer::handlePreNodeTraversal(const ros::Time& rostime){
   if (m_publish2DMap){
@@ -803,26 +655,6 @@ void OctomapServer::update2DMap(const OcTreeT::iterator& it, bool occupied){
 
 
 
-bool OctomapServer::isSpeckleNode(const OcTreeKey&nKey) const {
-  OcTreeKey key;
-  bool neighborFound = false;
-  for (key[2] = nKey[2] - 1; !neighborFound && key[2] <= nKey[2] + 1; ++key[2]){
-    for (key[1] = nKey[1] - 1; !neighborFound && key[1] <= nKey[1] + 1; ++key[1]){
-      for (key[0] = nKey[0] - 1; !neighborFound && key[0] <= nKey[0] + 1; ++key[0]){
-        if (key != nKey){
-          OcTreeNode* node = m_octree->search(key);
-          if (node && m_octree->isNodeOccupied(node)){
-            // we have a neighbor => break!
-            neighborFound = true;
-          }
-        }
-      }
-    }
-  }
-
-  return neighborFound;
-}
-
 void OctomapServer::reconfigureCallback(octomap_project::OctomapServerConfig& config, uint32_t level){
   if (m_maxTreeDepth != unsigned(config.max_depth))
     m_maxTreeDepth = unsigned(config.max_depth);
@@ -835,8 +667,6 @@ void OctomapServer::reconfigureCallback(octomap_project::OctomapServerConfig& co
     m_pointcloudMaxY            = config.pointcloud_max_y;
     m_occupancyMinZ             = config.occupancy_min_z;
     m_occupancyMaxZ             = config.occupancy_max_z;
-    m_filterSpeckles            = config.filter_speckles;
-    m_filterGroundPlane         = config.filter_ground;
     m_compressMap               = config.compress_map;
     m_incrementalUpdate         = config.incremental_2D_projection;
 
@@ -925,56 +755,6 @@ void OctomapServer::adjustMapData(nav_msgs::OccupancyGrid& map, const nav_msgs::
 
   }
 
-}
-
-
-std_msgs::ColorRGBA OctomapServer::heightMapColor(double h) {
-
-  std_msgs::ColorRGBA color;
-  color.a = 1.0;
-  // blend over HSV-values (more colors)
-
-  double s = 1.0;
-  double v = 1.0;
-
-  h -= floor(h);
-  h *= 6;
-  int i;
-  double m, n, f;
-
-  i = floor(h);
-  f = h - i;
-  if (!(i & 1))
-    f = 1 - f; // if i is even
-  m = v * (1 - s);
-  n = v * (1 - s * f);
-
-  switch (i) {
-    case 6:
-    case 0:
-      color.r = v; color.g = n; color.b = m;
-      break;
-    case 1:
-      color.r = n; color.g = v; color.b = m;
-      break;
-    case 2:
-      color.r = m; color.g = v; color.b = n;
-      break;
-    case 3:
-      color.r = m; color.g = n; color.b = v;
-      break;
-    case 4:
-      color.r = n; color.g = m; color.b = v;
-      break;
-    case 5:
-      color.r = v; color.g = m; color.b = n;
-      break;
-    default:
-      color.r = 1; color.g = 0.5; color.b = 0.5;
-      break;
-  }
-
-  return color;
 }
 }
 

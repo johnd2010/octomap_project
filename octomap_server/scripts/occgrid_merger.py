@@ -9,7 +9,6 @@ from sensor_msgs.msg import PointCloud2
 from nav_msgs.msg import OccupancyGrid
 from geometry_msgs.msg import Pose,PoseStamped, PoseArray, Point
 import argparse
-import ros_numpy
 import numpy as np
 from copy import deepcopy
 
@@ -19,14 +18,14 @@ class occgrid_merger(object):
         self.octree_processor_object = {}
         self.transform = {}
         self.occgrid_merged_TOPIC = ["/"+namespace+"/occgrid_merger/octree_projected_map_merged" for namespace in self.namespaces]        
-        self.pose_vertices = ["/"+namespace+"/pose_vertices" for namespace in self.namespaces]
+        # self.pose_vertices = ["/"+namespace+"/pose_vertices" for namespace in self.namespaces]
         self.pub_occ_merged = [rospy.Publisher(topic, OccupancyGrid, queue_size=10) for topic in self.occgrid_merged_TOPIC ]
         
-        self.pub_pose_vertices = [rospy.Publisher(topic, PoseArray, queue_size=10) for topic in self.pose_vertices ]
+        # self.pub_pose_vertices = [rospy.Publisher(topic, PoseArray, queue_size=10) for topic in self.pose_vertices ]
         for namespace in self.namespaces:
             print(namespace)
             self.octree_processor_object[namespace]=octomap_processor(namespace)
-
+    
     def create_pose(self,x, y, z):
         pose = Pose()
         pose.position = Point(x, y, z)
@@ -36,6 +35,8 @@ class occgrid_merger(object):
         pose.orientation.w = 1
         return pose
     
+    # def frontier_detector(self):
+        
     def merge_occupancy_grid(self):
         occ_grid_dict = {}
 
@@ -66,7 +67,6 @@ class occgrid_merger(object):
         y = [np.min(vertices[:,2:][:]),np.max(vertices[:,2:][:])]
         h = int((y[1] - y[0])/resolution)
         w = int((x[1] - x[0])/resolution)
-        cells = None
         for iter,namespace in enumerate(self.namespaces):
             if smooth_occ_grid is not None:                
                 # P = PoseArray()
@@ -147,14 +147,18 @@ class octomap_processor(object):
         # occgrid_merged_TOPIC_global = "/"+ns+"/occgrid_merger/octree_projected_map_merged_global" 
         # self.pub_occ_merged_global = rospy.Publisher(occgrid_merged_TOPIC_global , OccupancyGrid, queue_size=10) 
 
+
     def occCallback(self,occ):
         if occ is not None:            
             smooth_occ = occ
             image = np.reshape(np.asarray(smooth_occ.data,dtype=np.float32),(smooth_occ.info.height,smooth_occ.info.width))
+            # zero_padding = np.zeros()
+
             smooth_occ.data = np.asarray(cv.filter2D(cv.filter2D(image,-1,self.kernel),-1,self.kernel),dtype=np.int8).reshape(-1)
             smooth_occ.data = np.where(smooth_occ.data<0,-1,0)
-            self.smooth_local = deepcopy(smooth_occ)  #local frame occ grid
-
+            self.smooth_local =deepcopy(smooth_occ)  #local frame occ grid
+            
+            
             self.posestamped.pose = smooth_occ.info.origin
             self.posestamped.header = smooth_occ.header            
             world_origin = tf2_geometry_msgs.do_transform_pose(self.posestamped,self.transform["local_2_global"])
@@ -184,6 +188,9 @@ class octomap_processor(object):
     def return_smooth_occ_grid(self):
         return self.smooth_occ_grid
     
+    def return_smooth_local(self):
+        return self.smooth_local
+    
     def publish_local_pcl(self):
         if self.pcl is not None and self.transform["global_2_local"] is not None:
             local_pcl = do_transform_cloud(self.pcl,self.transform["global_2_local"] )
@@ -192,10 +199,6 @@ class octomap_processor(object):
     def publish_local_occ_grid(self):
         if self.smooth_local is not None:
             self.pub_occ.publish(self.smooth_local)   
-    
-    # def publish_local_occ_grid_global(self):
-    #     if self.return_smooth_occ_grid() is not None:
-    #         self.pub_occ_merged_global.publish(self.smooth_occ_grid)  
     
     
 

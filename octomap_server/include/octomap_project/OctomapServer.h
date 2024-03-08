@@ -135,8 +135,7 @@ protected:
   */
   virtual void insertScan(const tf::Point& sensorOrigin, const PCLPointCloud& ground, const PCLPointCloud& nonground);
 
-  /// label the input cloud "pc" into ground and nonground. Should be in the robot's fixed frame (not world!)
-  void filterGroundPlane(const PCLPointCloud& pc, PCLPointCloud& ground, PCLPointCloud& nonground) const;
+
 
   /**
   * @brief Find speckle nodes (single occupied voxels with no neighbors). Only works on lowest resolution!
@@ -197,7 +196,6 @@ protected:
                 || oldMapInfo.origin.position.y != newMapInfo.origin.position.y);
   }
 
-  static std_msgs::ColorRGBA heightMapColor(double h);
   ros::NodeHandle m_nh;
   ros::NodeHandle m_nh_private;
   ros::Publisher  m_markerPub, m_binaryMapPub, m_fullMapPub, m_pointCloudPub, m_collisionObjectPub, m_mapPub, m_cmapPub, m_fmapPub, m_fmarkerPub;
@@ -239,9 +237,7 @@ protected:
   double m_occupancyMaxZ;
   double m_minSizeX;
   double m_minSizeY;
-  bool m_filterSpeckles;
 
-  bool m_filterGroundPlane;
   double m_groundFilterDistance;
   double m_groundFilterAngle;
   double m_groundFilterPlaneDistance;

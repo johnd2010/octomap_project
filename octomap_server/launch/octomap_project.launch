@@ -12,6 +12,7 @@
 		<param name="pointcloud_min_y" value="$(arg pointcloud_min_y)" />
 		<param name="pointcloud_max_x" value="$(arg pointcloud_max_x)" />
 		<param name="pointcloud_max_y" value="$(arg pointcloud_max_y)" />
+		<param name="incremental_2D_projection" value="false" />
 		<!-- <param name="pointcloud_min_z" value="-1" /> -->
 		<!-- <param name="pointcloud_max_z" value="$(arg pointcloud_max_y)" /> -->
 		<!-- <param name="occupancy_max_z" value="false" /> -->
